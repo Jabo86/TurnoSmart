@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gestione Turni Lavoro</title>
+    <title>TurniSmart</title>
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts: Poppins -->
@@ -37,7 +37,7 @@
             opacity: 1;
         }
         .day-cell {
-            min-height: 50px; /* Compatta */
+            min-height: 90px; /* Aumentato da 70px a 90px per celle più alte */
             padding: 3px;
             display: flex;
             flex-direction: column;
@@ -59,6 +59,11 @@
             padding: 2px;
             border-radius: 3px;
             border: 1px solid #e2e8f0;
+            text-align: center; /* Centra il testo orizzontalmente */
+            text-align-last: center; /* Centra anche le opzioni nel menu a tendina */
+        }
+        .shift-select option {
+            text-align: center; /* Centra il testo delle opzioni */
         }
         .note-btn {
             font-size: 8px;
@@ -116,7 +121,7 @@
 <body class="bg-gradient-to-br from-blue-50 to-green-50 min-h-screen">
     <div class="container mx-auto p-2 max-w-md">
         <h1 class="text-xl font-bold text-center text-blue-800 mb-2">
-            <i class="fas fa-calendar-alt mr-1 text-orange-500"></i> Turni Lavoro
+            <i class="fas fa-calendar-alt mr-1 text-orange-500"></i> TurniSmart
         </h1>
         
         <div class="flex justify-between items-center mb-3">
@@ -552,9 +557,10 @@
                 // Menu a tendina per il turno
                 const select = document.createElement('select');
                 select.className = 'shift-select';
+                // Mostra solo la sigla senza le ore
                 select.innerHTML = `<option value="Nessun turno">Nessun turno</option>` + 
                     Object.keys(shifts).map(
-                        key => `<option value="${key}">${shifts[key].abbreviation} (${shifts[key].hours}h)</option>`
+                        key => `<option value="${key}">${shifts[key].abbreviation}</option>`
                     ).join('');
 
                 // Carica turno salvato
