@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gestione Turni Lavoro</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Poppins -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome per icone -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .grid-cal {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            background-color: white; /* Griglia bianca */
+        }
+        .day-header {
+            height: 24px;
+            font-size: 10px;
+            line-height: 24px;
+            text-align: center;
+            background-color: #3b82f6 !important;
+            color: white !important;
+            font-weight: bold;
+            border-radius: 3px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            visibility: visible;
+            opacity: 1;
+        }
+        .day-cell {
+            min-height: 50px; /* Compatta */
+            padding: 3px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            background-color: white; /* Sfondo bianco per celle */
+            border-radius: 5px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            font-size: 11px;
+            position: relative; /* Per posizionare la lampadina */
+        }
+        .day-number {
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .shift-select {
+            width: 100%;
+            font-size: 10px;
+            padding: 2px;
+            border-radius: 3px;
+            border: 1px solid #e2e8f0;
+        }
+        .note-btn {
+            font-size: 8px;
+            color: #3b82f6;
+            cursor: pointer;
+            text-decoration: underline;
+            line-height: 1.2;
+        }
+        .note-indicator {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 10px;
+            color: #f59e0b; /* Giallo per lampadina */
+            cursor: pointer;
+        }
+        .no-shift {
+            background-color: white; /* Nessun turno: sfondo bianco */
+        }
+        .holiday {
+            background-color: #ff0000 !important; /* Rosso acceso per festivi */
+        }
+        .nav-btn {
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+        .summary-box {
+            padding: 8px;
+            font-size: 12px;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            background-color: #ffffff;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .summary-title {
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .summary-value {
+            font-size: 13px;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+        .shift-summary {
+            font-size: 11px;
+            color: #4a5568;
+            margin-top: 4px;
+        }
+        .shift-summary-item {
+            margin-bottom: 2px;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-green-50 min-h-screen">
+    <div class="container mx-auto p-2 max-w-md">
+        <h1 class="text-xl font-bold text-center text-blue-800 mb-2">
+            <i class="fas fa-calendar-alt mr-1 text-orange-500"></i> Turni Lavoro
+        </h1>
+        
+        <div class="flex justify-between items-center mb-3">
+            <button onclick="prevMonth()" class="nav-btn bg-blue-600 text-white rounded-lg shadow">
+                <i class="fas fa-arrow-left mr-1"></i> Prec
+            </button>
+            <h2 id="monthYear" class="text-lg font-semibold text-gray-900"></h2>
+            <div class="flex space-x-2">
+                <button onclick="openCreateShiftModal()" class="nav-btn bg-green-600 text-white rounded-lg shadow">
+                    <i class="fas fa-plus mr-1"></i> Nuovo Turno
+                </button>
+                <button onclick="openDeleteShiftModal()" class="nav-btn bg-red-600 text-white rounded-lg shadow">
+                    <i class="fas fa-trash mr-1"></i> Elimina Turno
+                </button>
+                <button onclick="nextMonth()" class="nav-btn bg-blue-600 text-white rounded-lg shadow">
+                    Succ <i class="fas fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Calendario -->
+        <div class="grid-cal mb-4" id="calendar">
+            <div class="day-header">LUN</div>
+            <div class="day-header">MAR</div>
+            <div class="day-header">MER</div>
+            <div class="day-header">GIO</div>
+            <div class="day-header">VEN</div>
+            <div class="day-header">SAB</div>
+            <div class="day-header">DOM</div>
+        </div>
+
+        <!-- Conteggio ore lavorate e turni -->
+        <div class="summary-box">
+            <div class="summary-title">Ore Lavorate (Mese Corrente)</div>
+            <div id="workedHours" class="summary-value">0.00</div>
+            <div class="summary-title mt-4">Statistiche</div>
+            <div id="shiftSummary" class="shift-summary"></div>
+        </div>
+
+        <!-- Modale per creare un nuovo turno -->
+        <div id="createShiftModal" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center hidden">
+            <div class="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
+                <h3 class="text-lg font-semibold mb-4">Crea Nuovo Turno</h3>
+                <div class="mb-4">
+                    <label for="shiftName" class="block text-sm font-medium text-gray-700">Nome Turno (es. Mattina)</label>
+                    <input type="text" id="shiftName" class="w-full p-2 border rounded-lg" placeholder="Inserisci nome turno">
+                </div>
+                <div class="mb-4">
+                    <label for="shiftAbbreviation" class="block text-sm font-medium text-gray-700">Abbreviazione (es. M, opzionale)</label>
+                    <input type="text" id="shiftAbbreviation" class="w-full p-2 border rounded-lg" placeholder="Inserisci abbreviazione">
+                </div>
+                <div class="mb-4">
+                    <label for="shiftHours" class="block text-sm font-medium text-gray-700">Ore</label>
+                    <input type="number" id="shiftHours" class="w-full p-2 border rounded-lg" placeholder="Inserisci ore" step="0.01">
+                </div>
+                <div class="mb-4">
+                    <label for="shiftColor" class="block text-sm font-medium text-gray-700">Colore Turno</label>
+                    <input type="color" id="shiftColor" class="w-full h-10 p-1 border rounded-lg" value="#fef3c7">
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button onclick="closeCreateShiftModal()" class="px-4 py-2 bg-gray-300 rounded-lg">Annulla</button>
+                    <button onclick="createShift()" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Crea</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modale per eliminare un turno -->
+        <div id="deleteShiftModal" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center hidden">
+            <div class="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
+                <h3 class="text-lg font-semibold mb-4">Elimina Turno</h3>
+                <div class="mb-4">
+                    <label for="deleteShiftSelect" class="block text-sm font-medium text-gray-700">Seleziona Turno</label>
+                    <select id="deleteShiftSelect" class="w-full p-2 border rounded-lg">
+                        <option value="">Seleziona un turno</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button onclick="closeDeleteShiftModal()" class="px-4 py-2 bg-gray-300 rounded-lg">Annulla</button>
+                    <button onclick="deleteShift()" class="px-4 py-2 bg-red-600 text-white rounded-lg">Elimina</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modale per aggiungere/modificare una nota -->
+        <div id="noteModal" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center hidden">
+            <div class="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
+                <h3 class="text-lg font-semibold mb-4">Aggiungi/Modifica Nota</h3>
+                <div class="mb-4">
+                    <label for="noteText" class="block text-sm font-medium text-gray-700">Nota</label>
+                    <textarea id="noteText" class="w-full p-2 border rounded-lg" placeholder="Inserisci una nota" rows="3"></textarea>
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button onclick="closeNoteModal()" class="px-4 py-2 bg-gray-300 rounded-lg">Annulla</button>
+                    <button onclick="saveNote()" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Salva</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Inizializza l'oggetto shifts vuoto
+        let shifts = {};
+
+        // Festivi 2025
+        const holidays = [
+            { month: 0, day: 1 },   // 1 gennaio
+            { month: 0, day: 6 },   // 6 gennaio
+            { month: 3, day: 20 },  // 20 aprile (Pasqua)
+            { month: 3, day: 21 },  // 21 aprile (Pasquetta)
+            { month: 3, day: 25 },  // 25 aprile
+            { month: 4, day: 1 },   // 1 maggio
+            { month: 5, day: 2 },   // 2 giugno
+            { month: 7, day: 15 },  // 15 agosto
+            { month: 10, day: 1 },  // 1 novembre
+            { month: 11, day: 8 },  // 8 dicembre
+            { month: 11, day: 25 }, // 25 dicembre
+            { month: 11, day: 26 }  // 26 dicembre
+        ];
+
+        let currentDate = new Date(2025, 4, 6); // 6 maggio 2025
+        let currentMonth = currentDate.getMonth();
+        let currentYear = currentDate.getFullYear();
+        let currentNoteKey = null; // Per tracciare la chiave della nota nel modale
+
+        // Funzione per verificare se localStorage è disponibile
+        function storageAvailable(type) {
+            let storage;
+            try {
+                storage = window[type];
+                const x = '__storage_test__';
+                storage.setItem(x, x);
+                storage.removeItem(x);
+                console.log(`${type} è disponibile`);
+                return true;
+            } catch (e) {
+                console.error(`Errore con ${type}: ${e}`);
+                alert(`Errore: ${type} non è disponibile. I dati non verranno salvati.`);
+                return false;
+            }
+        }
+
+        // Verifica se localStorage è disponibile
+        const isStorageAvailable = storageAvailable('localStorage');
+
+        // Funzione per salvare un turno
+        function saveShift(shiftKey, shiftValue) {
+            if (isStorageAvailable) {
+                try {
+                    localStorage.setItem(shiftKey, shiftValue);
+                    console.log(`Salvataggio turno su localStorage per ${shiftKey}: ${shiftValue}`);
+                } catch (e) {
+                    console.error(`Errore nel salvataggio su localStorage per ${shiftKey}: ${e}`);
+                    alert('Errore nel salvataggio del turno.');
+                }
+            }
+        }
+
+        // Funzione per caricare un turno
+        function loadShift(shiftKey) {
+            if (isStorageAvailable) {
+                try {
+                    const shift = localStorage.getItem(shiftKey);
+                    console.log(`Caricamento turno da localStorage per ${shiftKey}: ${shift}`);
+                    return shift || 'Nessun turno';
+                } catch (e) {
+                    console.error(`Errore nel caricamento da localStorage per ${shiftKey}: ${e}`);
+                    return 'Nessun turno';
+                }
+            }
+            return 'Nessun turno';
+        }
+
+        // Funzione per salvare una nota
+        function saveNote() {
+            if (currentNoteKey && isStorageAvailable) {
+                const noteText = document.getElementById('noteText').value.trim();
+                try {
+                    if (noteText) {
+                        localStorage.setItem(currentNoteKey, noteText);
+                        console.log(`Salvataggio nota su localStorage per ${currentNoteKey}: ${noteText}`);
+                    } else {
+                        localStorage.removeItem(currentNoteKey);
+                        console.log(`Rimozione nota su localStorage per ${currentNoteKey}`);
+                    }
+                } catch (e) {
+                    console.error(`Errore nel salvataggio nota su localStorage per ${currentNoteKey}: ${e}`);
+                    alert('Errore nel salvataggio della nota.');
+                }
+                closeNoteModal();
+                renderCalendar();
+            }
+        }
+
+        // Funzione per caricare una nota
+        function loadNote(noteKey) {
+            if (isStorageAvailable) {
+                try {
+                    const note = localStorage.getItem(noteKey);
+                    console.log(`Caricamento nota da localStorage per ${noteKey}: ${note}`);
+                    return note || '';
+                } catch (e) {
+                    console.error(`Errore nel caricamento nota da localStorage per ${noteKey}: ${e}`);
+                    return '';
+                }
+            }
+            return '';
+        }
+
+        // Carica i turni personalizzati da localStorage
+        function loadCustomShifts() {
+            if (isStorageAvailable) {
+                const customShifts = localStorage.getItem('customShifts');
+                if (customShifts) {
+                    shifts = JSON.parse(customShifts);
+                    console.log('Turni personalizzati caricati:', shifts);
+                }
+            }
+        }
+
+        // Salva i turni personalizzati in localStorage
+        function saveCustomShifts() {
+            if (isStorageAvailable) {
+                localStorage.setItem('customShifts', JSON.stringify(shifts));
+                console.log('Turni personalizzati salvati:', shifts);
+            }
+        }
+
+        // Funzione per aprire il modale di creazione
+        function openCreateShiftModal() {
+            document.getElementById('createShiftModal').classList.remove('hidden');
+        }
+
+        // Funzione per chiudere il modale di creazione
+        function closeCreateShiftModal() {
+            document.getElementById('createShiftModal').classList.add('hidden');
+            document.getElementById('shiftName').value = '';
+            document.getElementById('shiftAbbreviation').value = '';
+            document.getElementById('shiftHours').value = '';
+            document.getElementById('shiftColor').value = '#fef3c7';
+        }
+
+        // Funzione per creare un nuovo turno
+        function createShift() {
+            const shiftName = document.getElementById('shiftName').value.trim().toUpperCase();
+            const shiftAbbreviation = document.getElementById('shiftAbbreviation').value.trim().toUpperCase();
+            const shiftHours = parseFloat(document.getElementById('shiftHours').value);
+            const shiftColor = document.getElementById('shiftColor').value;
+
+            // Validazione
+            if (!shiftName || isNaN(shiftHours) || shiftHours < 0) {
+                alert('Inserisci un nome valido e un numero di ore valido.');
+                return;
+            }
+
+            if (shifts[shiftName]) {
+                alert('Esiste già un turno con questo nome.');
+                return;
+            }
+
+            // Aggiungi il nuovo turno
+            shifts[shiftName] = { 
+                name: shiftName, 
+                abbreviation: shiftAbbreviation || shiftName, // Usa nome completo se abbreviazione non specificata
+                hours: shiftHours, 
+                color: shiftColor 
+            };
+            saveCustomShifts();
+            closeCreateShiftModal();
+            renderCalendar();
+        }
+
+        // Funzione per aprire il modale di eliminazione
+        function openDeleteShiftModal() {
+            const select = document.getElementById('deleteShiftSelect');
+            select.innerHTML = '<option value="">Seleziona un turno</option>' + 
+                Object.keys(shifts).map(
+                    key => `<option value="${key}">${shifts[key].name} (${shifts[key].hours}h)</option>`
+                ).join('');
+            document.getElementById('deleteShiftModal').classList.remove('hidden');
+        }
+
+        // Funzione per chiudere il modale di eliminazione
+        function closeDeleteShiftModal() {
+            document.getElementById('deleteShiftModal').classList.add('hidden');
+            document.getElementById('deleteShiftSelect').value = '';
+        }
+
+        // Funzione per eliminare un turno
+        function deleteShift() {
+            const shiftName = document.getElementById('deleteShiftSelect').value;
+            if (!shiftName) {
+                alert('Seleziona un turno da eliminare.');
+                return;
+            }
+
+            // Rimuovi il turno
+            delete shifts[shiftName];
+            saveCustomShifts();
+
+            // Aggiorna i giorni assegnati al turno eliminato
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            for (let day = 1; day <= daysInMonth; day++) {
+                const shiftKey = `shift_${currentYear}_${currentMonth}_${day}`;
+                if (loadShift(shiftKey) === shiftName) {
+                    saveShift(shiftKey, 'Nessun turno');
+                }
+            }
+
+            closeDeleteShiftModal();
+            renderCalendar();
+        }
+
+        // Funzione per aprire il modale delle note
+        function openNoteModal(year, month, day) {
+            currentNoteKey = `note_${year}_${month}_${day}`;
+            const noteText = document.getElementById('noteText');
+            noteText.value = loadNote(currentNoteKey);
+            document.getElementById('noteModal').classList.remove('hidden');
+        }
+
+        // Funzione per chiudere il modale delle note
+        function closeNoteModal() {
+            document.getElementById('noteModal').classList.add('hidden');
+            document.getElementById('noteText').value = '';
+            currentNoteKey = null;
+        }
+
+        // Funzione per calcolare le ore lavorate totali
+        function calculateWorkedHours() {
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            let totalWorked = 0;
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const shiftKey = `shift_${currentYear}_${currentMonth}_${day}`;
+                const shift = loadShift(shiftKey);
+                if (shift !== 'Nessun turno' && shifts[shift]) {
+                    totalWorked += shifts[shift].hours;
+                }
+            }
+
+            return totalWorked;
+        }
+
+        // Funzione per calcolare il conteggio dei turni e delle ore per tipo
+        function calculateShiftSummary() {
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const shiftCounts = {};
+            const shiftHours = {};
+
+            // Inizializza i contatori per ogni turno
+            Object.keys(shifts).forEach(shift => {
+                shiftCounts[shift] = 0;
+                shiftHours[shift] = 0;
+            });
+
+            // Conta i turni e le ore
+            for (let day = 1; day <= daysInMonth; day++) {
+                const shiftKey = `shift_${currentYear}_${currentMonth}_${day}`;
+                const shift = loadShift(shiftKey);
+                if (shift !== 'Nessun turno' && shifts[shift]) {
+                    shiftCounts[shift]++;
+                    shiftHours[shift] += shifts[shift].hours;
+                }
+            }
+
+            // Genera il riepilogo usando il nome completo
+            let summaryHtml = '';
+            Object.keys(shifts).forEach(shift => {
+                summaryHtml += `<div class="shift-summary-item">${shifts[shift].name}: ${shiftCounts[shift]} turni, ${shiftHours[shift].toFixed(2)} ore</div>`;
+            });
+
+            if (!summaryHtml) {
+                summaryHtml = '<div class="shift-summary-item">Nessun turno assegnato</div>';
+            }
+
+            return summaryHtml;
+        }
+
+        // Funzione per aggiornare il conteggio delle ore lavorate e il riepilogo turni
+        function updateWorkedHoursAndSummary() {
+            const workedHours = calculateWorkedHours();
+            document.getElementById('workedHours').textContent = workedHours.toFixed(2);
+
+            const shiftSummary = calculateShiftSummary();
+            document.getElementById('shiftSummary').innerHTML = shiftSummary;
+        }
+
+        // Funzione per rendere il calendario
+        function renderCalendar() {
+            const calendar = document.getElementById('calendar');
+            const monthYear = document.getElementById('monthYear');
+
+            // Pulisci calendario (tranne le 7 intestazioni)
+            while (calendar.children.length > 7) {
+                calendar.removeChild(calendar.lastChild);
+            }
+
+            // Imposta mese e anno
+            const monthNames = [
+                'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'
+            ];
+            monthYear.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+            // Calcola giorni del mese
+            const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const offset = firstDay === 0 ? 6 : firstDay - 1; // Offset: domenica (0) -> 6, lunedì (1) -> 0, ecc.
+
+            // Log per debug
+            console.log(`Mese: ${monthNames[currentMonth]} ${currentYear}`);
+            console.log(`Primo giorno: ${firstDay}, Offset: ${offset}, Giorni nel mese: ${daysInMonth}`);
+
+            // Aggiungi celle vuote iniziali
+            for (let i = 0; i < offset; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'day-cell';
+                calendar.appendChild(emptyCell);
+            }
+
+            // Aggiungi giorni del mese
+            let dayCount = 0;
+            for (let day = 1; day <= daysInMonth; day++) {
+                const cell = document.createElement('div');
+                cell.className = 'day-cell';
+
+                // Numero giorno
+                const dayNumber = document.createElement('span');
+                dayNumber.className = 'day-number';
+                dayNumber.textContent = day;
+                cell.appendChild(dayNumber);
+
+                // Menu a tendina per il turno
+                const select = document.createElement('select');
+                select.className = 'shift-select';
+                select.innerHTML = `<option value="Nessun turno">Nessun turno</option>` + 
+                    Object.keys(shifts).map(
+                        key => `<option value="${key}">${shifts[key].abbreviation} (${shifts[key].hours}h)</option>`
+                    ).join('');
+
+                // Carica turno salvato
+                const shiftKey = `shift_${currentYear}_${currentMonth}_${day}`;
+                const savedShift = loadShift(shiftKey);
+                select.value = savedShift;
+
+                // Applica stile corretto
+                if (savedShift === 'Nessun turno') {
+                    cell.classList.add('no-shift');
+                    cell.style.backgroundColor = 'white';
+                } else if (shifts[savedShift]) {
+                    cell.style.backgroundColor = shifts[savedShift].color;
+                }
+
+                // Festivi/domeniche
+                const date = new Date(currentYear, currentMonth, day);
+                const isHoliday = holidays.some(h => h.month === currentMonth && h.day === day);
+                const isSunday = date.getDay() === 0;
+                if (isHoliday || isSunday) {
+                    cell.classList.add('holiday');
+                }
+
+                select.addEventListener('change', () => {
+                    const newShift = select.value;
+                    saveShift(shiftKey, newShift);
+                    cell.className = 'day-cell';
+                    if (newShift === 'Nessun turno') {
+                        cell.classList.add('no-shift');
+                        cell.style.backgroundColor = 'white';
+                    } else if (shifts[newShift]) {
+                        cell.style.backgroundColor = shifts[newShift].color;
+                    }
+                    if (isHoliday || isSunday) {
+                        cell.classList.add('holiday');
+                    }
+                    updateWorkedHoursAndSummary();
+                });
+
+                cell.appendChild(select);
+
+                // Pulsante "Note"
+                const noteBtn = document.createElement('div');
+                noteBtn.className = 'note-btn';
+                noteBtn.textContent = 'Note';
+                noteBtn.addEventListener('click', () => openNoteModal(currentYear, currentMonth, day));
+                cell.appendChild(noteBtn);
+
+                // Indicatore nota (lampadina)
+                const noteKey = `note_${currentYear}_${currentMonth}_${day}`;
+                const noteText = loadNote(noteKey);
+                if (noteText) {
+                    const noteIndicator = document.createElement('i');
+                    noteIndicator.className = 'fas fa-lightbulb note-indicator';
+                    noteIndicator.addEventListener('click', () => openNoteModal(currentYear, currentMonth, day));
+                    cell.appendChild(noteIndicator);
+                }
+
+                calendar.appendChild(cell);
+                dayCount++;
+            }
+
+            // Calcola il numero totale di celle necessarie
+            const totalCellsNeeded = offset + daysInMonth;
+            const rowsNeeded = Math.ceil(totalCellsNeeded / 7); // Numero di righe necessarie
+            const totalCells = rowsNeeded * 7; // Celle totali per una griglia completa
+
+            // Riempi le celle rimanenti per completare la griglia
+            while (calendar.children.length < totalCells) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'day-cell';
+                calendar.appendChild(emptyCell);
+            }
+
+            // Log di debug
+            console.log(`Celle totali: ${calendar.children.length}, Righe: ${rowsNeeded}, Giorni visualizzati: ${dayCount}`);
+
+            // Aggiorna conteggio ore lavorate e riepilogo turni
+            updateWorkedHoursAndSummary();
+        }
+
+        function prevMonth() {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            renderCalendar();
+        }
+
+        function nextMonth() {
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            renderCalendar();
+        }
+
+        // Inizializza
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCustomShifts();
+            renderCalendar();
+        });
+    </script>
+</body>
+</html>
